@@ -1,0 +1,219 @@
+<!DOCTYPE HTML>
+<!--
+	Phantom by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>A Deeper Redive Into Covid</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
+	</head>
+	<body class="is-preload">
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Header -->
+					<header id="header">
+						<div class="inner">
+
+							<!-- Logo -->
+								<a href="index.html" class="logo">
+									<span class="symbol"><img src="images/logo.svg" alt="" /></span><span class="title">Emilytics</span>
+								</a>
+
+							<!-- Nav -->
+								<nav>
+									<ul>
+										<li><a href="#menu">Menu</a></li>
+									</ul>
+								</nav>
+
+						</div>
+					</header>
+
+				<!-- Menu -->
+					<nav id="menu">
+						<h2>Menu</h2>
+						<ul>
+							<li><a href="index.html">Home</a></li>
+							<li><a href="analyzing-global-covid-19-impact.html">Analyzing Global COVID-19 Impact</a></li>
+							<li><a href="a-deeper-redive-into-covid.html">A Deeper Redive Into COVID</a></li>
+							<li><a href="cleaning-nashville-housing-data-in-sql.html">Cleaning Nashville Housing Data in SQL</a></li>
+						</ul>
+					</nav>
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner">
+							<h1>A Deeper Redive Into COVID</h1>
+							<b>Tools Used:</b><p>Microsoft SQL Server, Excel, Tableau</p>
+							<span class="image main"><img src="images/covid1cropped.jpg" alt="" /></span>
+							<p>In this project, I redive into the global COVID-19 landscape, revealing trends, disparities, and insights. This is a continuation of <a href="analyzing-global-covid-19-impact">Analyzing Global COVID-19 Impact</a> and I am again obtaining my data from <a href="https://ourworldindata.org/covid-deaths">Our World in Data</a>.</p>
+							<h3>Preparing The Data</h3>
+								<p>After obtaining the data from the source linked above, I split up the data into the two tables that I use for all the queries in this project: CovidDeaths and CovidVaccinations, shown below:</p>
+								<iframe width="669" height="346" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%213787&authkey=%21AI_CpvBh5ecRufA&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+								<iframe width="669" height="346" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%213788&authkey=%21APbDnsxEZshqoWE&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+							<p>After scanning through and importing these tables into Microsoft SQL server, I got started on the queries. This time, I am including data up until August 2023.</p>
+							<h3>Querying the Data</h3>
+							<p>First, I want to see how to the total number of cases, deaths, and vaccination rates differ across countries. This data is from two different tables, so I have to join the two tables to get my output. I exclude locations that are not countries from my query.</p>
+							<pre><code> 
+SELECT 
+	dea.location, 
+	MAX(CAST(dea.total_cases AS INT)) AS TotalCases, 
+	MAX(CAST(dea.total_deaths AS INT)) AS TotalDeaths, 
+	ROUND((MAX(CAST(dea.total_deaths AS FLOAT)) / NULLIF(MAX(CAST(dea.total_cases AS FLOAT)), 0)) * 100, 2) AS DeathPercentage,
+	MAX(vac.people_vaccinated/dea.population)*100 AS PercentPopulationVaccinated
+FROM CovidDeaths$ dea
+JOIN CovidVaccinations$ vac 
+	ON dea.location=vac.location AND dea.date=vac.date
+WHERE dea.location NOT IN ('World', 'High income', 'European Union', 'Low income', 'Upper middle income', 'Lower middle income', 'Asia', 'Europe', 'North America', 'South America', 'Oceania', 'Africa', 'United Kingdom')
+GROUP BY dea.location
+ORDER BY TotalCases DESC, TotalDeaths DESC
+							</code></pre> 
+							<p>This query is used for all three map visualizations on my final dashboard result. Running this first query gives us the following result:</p>
+							<iframe width="700" height="346" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%215429&authkey=%21AD0nu0gTJWwX4qU&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+							<br><br>
+							<p>This second query allows us to view daily new cases and deaths globally and how these change over time.</p>
+							<pre><code>
+SELECT 
+	date, 
+	CASE WHEN total_cases IS NULL THEN 0 ELSE total_cases END AS TotalCases, 
+	CASE WHEN total_deaths IS NULL THEN 0 ELSE total_deaths END AS TotalDeaths,
+	total_cases/population*100 AS PercentPopulationInfected,
+	CASE WHEN total_cases = 0 THEN 0 ELSE TRY_CAST(total_deaths AS DECIMAL(18, 2)) * 100.0 / TRY_CAST(total_cases AS DECIMAL(18, 2)) END AS DeathPercentage
+FROM CovidDeaths$
+WHERE location='World' AND date <= '2023-08-02' AND total_deaths < total_cases
+ORDER BY date 
+							</code></pre> 	
+							<p>This second query returns the following output:</p>	
+							<iframe width="600" height="346" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%213799&authkey=%21AFJq9U98dAMPPjU&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+							<br><br>
+							<!-- where i am leaving off -->
+							<p>Next, I wanted a visual to show the rollout of vaccines over time. This third query allows us to view daily new vaccinated people, fully vaccinated people, and booster doses over time. Again, we need data from both tables, so we preform a join on location and date.</p>
+							<pre><code>
+SELECT 
+	DISTINCT vac.date, 
+	dea.population, 
+	vac.total_vaccinations, 
+	vac.people_vaccinated, 
+	vac.people_fully_vaccinated, 
+	vac.total_boosters,
+	vac.people_vaccinated/dea.population*100 AS PercentPopulationVaccinated,
+	vac.people_fully_vaccinated/dea.population*100 AS PercentPopulationFullyVaccinated
+FROM CovidVaccinations$ vac
+INNER JOIN CovidDeaths$ dea
+	ON dea.location=vac.location AND dea.date=vac.date
+WHERE vac.location='World'
+ORDER BY date
+							</code></pre> 
+							<p>This third query returns the following output:</p>	
+							<iframe width="402" height="346" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%213801&authkey=%21AA7_T9UCyvl2EL0&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+							<br><br>
+							<p>I did not end up visualizing this query, but this next query shows us median age, population desnity, GDP per capita, and infection and death rates alongside each otther to find potential correlationl relationships.</p> 
+							<pre><code>
+SELECT 
+	vac.median_age, 
+	vac.population_density, 
+	vac.gdp_per_capita, 
+	dea.total_cases/dea.population*100 AS PercentPopulationInfected,
+	CASE WHEN dea.total_cases = 0 THEN 0 ELSE TRY_CAST(dea.total_deaths AS DECIMAL(18, 2)) * 100.0 / TRY_CAST(dea.total_cases AS DECIMAL(18, 2)) END AS DeathPercentage
+FROM CovidVaccinations$ vac
+INNER JOIN CovidDeaths$ dea
+	ON dea.location=vac.location AND dea.date=vac.date
+WHERE median_age IS NOT NULL AND population_density IS NOT NULL AND gdp_per_capita IS NOT NULL
+GROUP BY vac.median_age, vac.population_density, vac.gdp_per_capita, dea.total_cases, dea.total_deaths, dea.population
+							</code></pre>
+							<p>This fourth query returns the following output:</p>
+							<iframe width="700" height="346" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%213803&authkey=%21AN4BMcFJ1XjmKj8&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+							<br><br>
+							<p>Next, we look at the <a href="https://ourworldindata.org/covid-stringency-index#:~:text=The%20nine%20metrics%20used%20to,movements%3B%20and%20international%20travel%20controls">stringency index</a> alongside new cases to observe any correlation between the US government's measures and case numbers. This query pulls the daily stringency index and new cases in the US, allowing us to see how each change over time.</p>
+							<pre><code>
+SELECT vac.date, vac.stringency_index, dea.new_cases
+FROM CovidVaccinations$ vac
+JOIN CovidDeaths$ dea
+	ON dea.location=vac.location AND dea.date=vac.date
+WHERE vac.location='United States' AND vac.stringency_index IS NOT NULL
+ORDER BY date
+							</code></pre>
+							<p>This fifth query returns the following output:</p>
+							<iframe width="402" height="346" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%213804&authkey=%21AK3jhuC0VVsMM74&em=2&wdAllowInteractivity=False&wdHideGridlines=True&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+							<br><br>
+							<p>These last two queries are not included in the final dashboard, however, I wanted to compare COVID-19 data with health indicators such as diabetes prevalence and cardiovascular death rate. This next query pulls health data from the vaccinations table and infection and death rates from the death table to view alongside each other.</p>
+							<pre><code>
+SELECT 
+	vac.diabetes_prevalence, 
+	vac.cardiovasc_death_rate,
+	dea.total_cases/dea.population*100 AS PercentPopulationInfected,
+	CASE WHEN dea.total_cases = 0 THEN 0 ELSE TRY_CAST(dea.total_deaths AS DECIMAL(18, 2)) * 100.0 / TRY_CAST(dea.total_cases AS DECIMAL(18, 2)) END AS DeathPercentage
+FROM CovidVaccinations$ vac
+INNER JOIN CovidDeaths$ dea
+	ON dea.location=vac.location AND dea.date=vac.date
+WHERE vac.diabetes_prevalence IS NOT NULL AND vac.cardiovasc_death_rate IS NOT NULL AND total_cases IS NOT NULL AND total_deaths IS NOT NULL
+							</code></pre>
+							<p>This sixth query returns the following output:</p>
+							<iframe width="600" height="346" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%215624&authkey=%21AEsDvW_WClipiOw&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+							<br><br>
+							<p>Finally, this last query pulls the human development index (HDI) and infection and death rates of each country from both tables to view alongside each other to find possible correlation.</p>
+							<pre><code>
+SELECT 
+	dea.location,
+	vac.human_development_index, 
+	MAX(dea.total_cases/dea.population)*100 AS PercentPopulationInfected,
+	MAX(CASE WHEN dea.total_cases = 0 THEN 0 ELSE TRY_CAST(dea.total_deaths AS DECIMAL(18, 2)) * 100.0 / TRY_CAST(dea.total_cases AS DECIMAL(18, 2)) END) AS DeathPercentage
+FROM CovidVaccinations$ vac
+INNER JOIN CovidDeaths$ dea
+	ON dea.location=vac.location AND dea.date=vac.date
+WHERE 
+	vac.human_development_index IS NOT NULL AND 
+	dea.total_cases IS NOT NULL AND dea.total_deaths IS NOT NULL AND 
+	dea.location NOT IN ('World', 'High income', 'European Union', 'Low income', 'Upper middle income', 'Lower middle income', 'Asia', 'Europe', 'North America', 'South America', 'Oceania', 'Africa', 'United Kingdom')
+GROUP BY dea.location, vac.human_development_index
+ORDER BY vac.human_development_index DESC
+							</code></pre>
+							<p>Finally, this last query returns the following output:</p>
+							<iframe width="600" height="346" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%215644&authkey=%21AC3oJeJWOEuw4NQ&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+							<h3>Visualizing The Data</h3>
+						<p>Now we are finally ready to create our visuals. I created Excel sheets for each of my queries' outputs and imported the data into Tableau for visualization. I chose to visualize the data with maps and line graph to best communicate country comparison and change over time. The dashboard for these visualizations is also viewable at <a href="https://public.tableau.com/app/profile/emily.tableau5908/viz/ADeeperDiveonCovidJan2020-Aug2023/Dashboard1">Tableau</a>.</p>
+						<div class='tableauPlaceholder' id='viz1693201292270' style='position: relative'><noscript><a href='#'><img alt='Dashboard 1 ' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;AD&#47;ADeeperDiveonCovidJan2020-Aug2023&#47;Dashboard1&#47;1_rss.png' style='border: none' /></a></noscript><object class='tableauViz'  style='display:none;'><param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' /> <param name='embed_code_version' value='3' /> <param name='site_root' value='' /><param name='name' value='ADeeperDiveonCovidJan2020-Aug2023&#47;Dashboard1' /><param name='tabs' value='no' /><param name='toolbar' value='yes' /><param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;AD&#47;ADeeperDiveonCovidJan2020-Aug2023&#47;Dashboard1&#47;1.png' /> <param name='animate_transition' value='yes' /><param name='display_static_image' value='yes' /><param name='display_spinner' value='yes' /><param name='display_overlay' value='yes' /><param name='display_count' value='yes' /><param name='language' value='en-US' /></object></div>                <script type='text/javascript'>                    var divElement = document.getElementById('viz1693201292270');                    var vizElement = divElement.getElementsByTagName('object')[0];                    vizElement.style.width='100%';vizElement.style.height=(divElement.offsetWidth*0.75)+'px';                    var scriptElement = document.createElement('script');                    scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';                    vizElement.parentNode.insertBefore(scriptElement, vizElement);                </script>
+						<br><br>
+						<p>The most interesting takeaway from these visualizations to me is the fact that the US's stringency index continued to fall despite the huge surge from December 2021 through January 2022, which aligns with my memory of the events.</p>
+						<p>Thank you for reading until the end. My full query script which includes queries that I did not end up visualizing is accessible on <a href="https://github.com/emilytics/PortfolioProjects/blob/Projects/COVID%20Deeper%20Dive%20Queries%20for%20Visualization%20Jan%202020%20-%20Aug%202023.sql">Github</a>.</p>
+					</div>
+					</div>
+
+				<!-- Footer -->
+				<footer id="footer">
+					<div class="inner">
+						<section>
+							<h2>Get in touch</h2>
+							<p>ftemilyphan@gmail.com 
+							<br>(408) 775-5341<p>
+						</section>
+						<section>
+							<h2>Follow</h2>
+							<ul class="icons">
+								<li><a href="https://linkedin.com/in/emily-phan-49421613b" class="icon brands style2 fa-linkedin"><span class="label">Dribbble</span></a></li>
+								<li><a href="https://github.com/emilytics/PortfolioProjects" class="icon brands style2 fa-github"><span class="label">GitHub</span></a></li>
+							</ul>
+						</section>
+						<ul class="copyright">
+							<li>&copy; Emilytics. All rights reserved</li>
+						</ul>
+					</div>
+				</footer>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="assets/js/jquery.min.js"></script>
+			<script src="assets/js/browser.min.js"></script>
+			<script src="assets/js/breakpoints.min.js"></script>
+			<script src="assets/js/util.js"></script>
+			<script src="assets/js/main.js"></script>
+
+	</body>
+</html>

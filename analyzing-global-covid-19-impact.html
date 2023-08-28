@@ -1,0 +1,151 @@
+<!DOCTYPE HTML>
+<!--
+	Phantom by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>Analyzing Global COVID-19 Impact</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
+	</head>
+	<body class="is-preload">
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Header -->
+					<header id="header">
+						<div class="inner">
+
+							<!-- Logo -->
+								<a href="index.html" class="logo">
+									<span class="symbol"><img src="images/logo.svg" alt="" /></span><span class="title">Emilytics</span>
+								</a>
+
+							<!-- Nav -->
+								<nav>
+									<ul>
+										<li><a href="#menu">Menu</a></li>
+									</ul>
+								</nav>
+
+						</div>
+					</header>
+
+				<!-- Menu -->
+					<nav id="menu">
+						<h2>Menu</h2>
+						<ul>
+							<li><a href="index.html">Home</a></li>
+							<li><a href="analyzing-global-covid-19-impact.html">Analyzing Global COVID-19 Impact</a></li>
+							<li><a href="a-deeper-redive-into-covid.html">A Deeper Redive Into COVID</a></li>
+							<li><a href="cleaning-nashville-housing-data-in-sql.html">Cleaning Nashville Housing Data in SQL</a></li>
+						</ul>
+					</nav>
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner">
+							<h1>Analyzing Global COVID-19 Impact</h1>
+							<b>Tools Used:</b><p>Microsoft SQL Server, Excel, Tableau</p>
+							<span class="image main"><img src="images/covidcropped.jpg" alt="" /></span>
+							<p>In this project, I embarked on an exploration of COVID-19's impact using publicly available data sourced from <a href="https://ourworldindata.org/covid-deaths">Our World in Data</a>. I navigated through data preparation, analysis, and visualization stages to derive meaningful insights.</p>
+							<h3>Preparing The Data</h3>
+								<p>After obtaining the data from the source linked above, I split up the data into the two tables that I use for all the queries in this project: CovidDeaths and CovidVaccinations, shown below:</p>
+								<iframe width="669" height="346" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%213787&authkey=%21AI_CpvBh5ecRufA&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+								<iframe width="669" height="346" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%213788&authkey=%21APbDnsxEZshqoWE&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+							<p>After scanning through and importing these tables into Microsoft SQL server, I got started on the queries. Note: this data only ranges from January 2020 to May 2021.</p>
+							<h3>Querying the Data</h3>
+							<p>First, I wanted to look at the global totals. This first query gives us the total global number of cases, deaths, and the percentage of people that have died from Covid. The original data source includes continents and countries in the "location" field, so I filter out locations that are not countries to avoid redundancies in the final tallies.</p>
+							<pre><code> 
+SELECT 
+	dea.location, 
+	MAX(CAST(dea.total_cases AS INT)) AS TotalCases, 
+	MAX(CAST(dea.total_deaths AS INT)) AS TotalDeaths, 
+	ROUND((MAX(CAST(dea.total_deaths AS FLOAT)) / NULLIF(MAX(CAST(dea.total_cases AS FLOAT)), 0)) * 100, 2) AS DeathPercentage,
+	MAX(vac.people_vaccinated/dea.population)*100 AS PercentPopulationVaccinated
+FROM CovidDeaths$ dea
+JOIN CovidVaccinations$ vac 
+	ON dea.location=vac.location AND dea.date=vac.date
+WHERE dea.location NOT IN ('World', 'High income', 'European Union', 'Low income', 'Upper middle income', 'Lower middle income', 'Asia', 'Europe', 'North America', 'South America', 'Oceania', 'Africa', 'United Kingdom')
+GROUP BY dea.location
+ORDER BY TotalCases DESC, TotalDeaths DESC
+							</code></pre> 
+							<p>Running this query gives us the following result:</p>
+							<iframe width="402" height="150" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%213791&authkey=%21ADEf0cRHsFqlw6U&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+							<br><br>
+							<p>This second query compares the total death count of the different continents. Again, removing "World", "European Union", and "International" because we want to compare the <i>continents'</i> totals.</p>
+							<pre><code>
+SELECT Location, SUM(cast(new_deaths as int)) as TotalDeathCount
+FROM CovidDeaths$
+WHERE continent is null
+	AND location NOT IN ('World', 'European Union', 'International')
+GROUP BY Location
+ORDER BY TotalDeathCount desc 
+							</code></pre> 	
+							<p>This query returns the following output:</p>	
+							<iframe width="402" height="250" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%213794&authkey=%21AGj5o-r-LvI4MoA&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+							<br><br>
+							<p>Next, I wanted a visual to show how infection rates compared across the different countries. To accomplish this, we write a query to pull the country and associated infection rate, which we define as the total number of cases in a country divided by its population. I call this column PercentPopulationInfected.</p>
+							<pre><code>
+SELECT Location, Population, MAX(total_cases) as HighestInfectionCount, MAX((total_cases/population))*100 as PercentPopulationInfected
+FROM CovidDeaths$
+GROUP BY Location, Population
+ORDER BY PercentPopulationInfected desc</code></pre> 
+							<p>This third query returns the following output:</p>	
+							<iframe width="700" height="346" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%213796&authkey=%21AAg7DPJv36kocY0&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>
+							<br><br>
+							<p>Finally, I wanted to see what the growth of different countries' infection rates over time looked like. This query allows us to see how the percent population infected changes over time by each country.</p> 
+							<pre><code>
+SELECT Location, Population, Date, MAX(total_cases) as HighestInfectionCount, MAX((total_cases/population))*100 as PercentPopulationInfected
+FROM CovidDeaths$
+WHERE total_cases is null
+GROUP BY Location, Population, Date
+ORDER BY PercentPopulationInfected desc
+							</code></pre>
+							<p>Finally, this last query returns the following output:</p>
+							<iframe width="800" height="346" frameborder="0" scrolling="no" src="https://onedrive.live.com/embed?resid=DEFB5343401F4479%213798&authkey=%21AHZAziorFDC0qok&em=2&wdAllowInteractivity=False&wdHideHeaders=True&wdDownloadButton=True&wdInConfigurator=True&wdInConfigurator=True"></iframe>	
+						<h3>Visualizing The Data</h3>
+						<br><br>
+						<p>Now we are finally ready to create our visuals. I created Excel sheets for each of my queries' outputs and imported the data into Tableau for visualization. I employed a variety of visuals to communicate the data: tables, maps, bar charts, and line graphs. The dashboard for these visualizations is also viewable at <a href="https://public.tableau.com/app/profile/emily.tableau5908/viz/CovidGrowthJan2020-May2021/Dashboard1">Tableau</a>.</p>
+						<div class='tableauPlaceholder' id='viz1693185746832' style='position: relative'><noscript><a href='#'><img alt='Dashboard 1 ' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;Co&#47;CovidGrowthJan2020-May2021&#47;Dashboard1&#47;1_rss.png' style='border: none' /></a></noscript><object class='tableauViz'  style='display:none;'><param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' /> <param name='embed_code_version' value='3' /> <param name='site_root' value='' /><param name='name' value='CovidGrowthJan2020-May2021&#47;Dashboard1' /><param name='tabs' value='no' /><param name='toolbar' value='yes' /><param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;Co&#47;CovidGrowthJan2020-May2021&#47;Dashboard1&#47;1.png' /> <param name='animate_transition' value='yes' /><param name='display_static_image' value='yes' /><param name='display_spinner' value='yes' /><param name='display_overlay' value='yes' /><param name='display_count' value='yes' /><param name='language' value='en-US' /></object></div>                <script type='text/javascript'>                    var divElement = document.getElementById('viz1693185746832');                    var vizElement = divElement.getElementsByTagName('object')[0];                    if ( divElement.offsetWidth > 800 ) { vizElement.style.width='100%';vizElement.style.height=(divElement.offsetWidth*0.75)+'px';} else if ( divElement.offsetWidth > 500 ) { vizElement.style.width='100%';vizElement.style.height=(divElement.offsetWidth*0.75)+'px';} else { vizElement.style.width='100%';vizElement.style.height='1227px';}                     var scriptElement = document.createElement('script');                    scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';                    vizElement.parentNode.insertBefore(scriptElement, vizElement);                </script>
+						<br><br>
+						<p>Thank you for reading until the end. My full query script which includes queries that I did not end up visualizing is accessible on <a href="https://github.com/emilytics/PortfolioProjects/blob/Projects/COVID%20Portfolio%20Project.sql">Github</a>.</p>
+					</div>
+					</div>
+
+				<!-- Footer -->
+				<footer id="footer">
+					<div class="inner">
+						<section>
+							<h2>Get in touch</h2>
+							<p>ftemilyphan@gmail.com 
+							<br>(408) 775-5341<p>
+						</section>
+						<section>
+							<h2>Follow</h2>
+							<ul class="icons">
+								<li><a href="https://linkedin.com/in/emily-phan-49421613b" class="icon brands style2 fa-linkedin"><span class="label">Dribbble</span></a></li>
+								<li><a href="https://github.com/emilytics/PortfolioProjects" class="icon brands style2 fa-github"><span class="label">GitHub</span></a></li>
+							</ul>
+						</section>
+						<ul class="copyright">
+							<li>&copy; Emilytics. All rights reserved</li>
+						</ul>
+					</div>
+				</footer>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="assets/js/jquery.min.js"></script>
+			<script src="assets/js/browser.min.js"></script>
+			<script src="assets/js/breakpoints.min.js"></script>
+			<script src="assets/js/util.js"></script>
+			<script src="assets/js/main.js"></script>
+
+	</body>
+</html>

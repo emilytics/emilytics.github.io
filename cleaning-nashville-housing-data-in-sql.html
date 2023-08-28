@@ -1,0 +1,215 @@
+<!DOCTYPE HTML>
+<!--
+	Phantom by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>Cleaning Nashville Housing Data in SQL</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
+	</head>
+	<body class="is-preload">
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Header -->
+					<header id="header">
+						<div class="inner">
+
+							<!-- Logo -->
+								<a href="index.html" class="logo">
+									<span class="symbol"><img src="images/logo.svg" alt="" /></span><span class="title">Emilytics</span>
+								</a>
+
+							<!-- Nav -->
+								<nav>
+									<ul>
+										<li><a href="#menu">Menu</a></li>
+									</ul>
+								</nav>
+
+						</div>
+					</header>
+
+				<!-- Menu -->
+					<nav id="menu">
+						<h2>Menu</h2>
+						<ul>
+							<li><a href="index.html">Home</a></li>
+							<li><a href="analyzing-global-covid-19-impact.html">Analyzing Global COVID-19 Impact</a></li>
+							<li><a href="a-deeper-redive-into-covid.html">A Deeper Redive Into COVID</a></li>
+							<li><a href="cleaning-nashville-housing-data-in-sql.html">Cleaning Nashville Housing Data in SQL</a></li>
+						</ul>
+					</nav>
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner">
+							<h1>Cleaning Nashville Housing Data in SQL</h1>
+							<b>Tools Used:</b><p>Microsoft SQL Server, Excel</p>
+							<span class="image main"><img src="images/nashvillecropped.jpg" alt="" /></span>
+							<p>In this project, I employed Microsoft SQL Server to cleanse Nashville housing data, encompassing tasks from standardizing formats and addressing null values to unifying fields and eliminating redundancies. The original, uncleaned dataset can be viewed and downloaded <a href="https://github.com/emilytics/PortfolioProjects/blob/Projects/NashvilleHousing%20Uncleaned.xlsx">here</a>.</p>
+							<p>The first thing I wanted to do was standardize the date format. I do so with the CONVERT function in SQL. I update the data source with the standardized date using UPDATE and ALTER TABLE.</p>
+							<pre><code> 
+SELECT SaleDateConverted, CONVERT(Date, SaleDate)
+FROM NashvilleHousing
+								
+UPDATE NashvilleHousing
+SET SaleDate = CONVERT(Date, SaleDate)
+								
+ALTER TABLE NashvilleHousing
+ADD SaleDateConverted Date;
+								
+UPDATE NashvilleHousing
+SET SaleDateConverted = CONVERT(Date, SaleDate)
+							</code></pre> 
+							<p>Looking through the original dataset, we see that there multiple places where the Property Address value is null. Searching further through the dataset, we can reasonably conclude that each unique property address has its own unique Parcel ID. So, if two records have the same Parcel ID, then their property addresses must be the same. Using this idea, we do a self join with Nashville Housing table on the Parcel ID. To distinguish between different records with the same property address, we'll specify that the Unique ID cannot be the same. We filter for records where the Property Address (in Table A) is null. The self join allows us to view Property Address and Parcel ID from Table A and Property Address and Parcel ID from Table B side by side. Since we filter for null property addresses in Table A, we'll only see records with null property addresses in Table A, but we'll be able to see the property adresses from Table B-- with the same Parcel ID as records in table A! We then use the ISNULL and UDPATE functions to populate null Property Address values with the Property Address of records that have the same Parcel ID. As long as a record has a Parcel ID that appears more than once in the dataset, then its null Property Address can be populated.</p>
+							<pre><code>
+SELECT *
+FROM NashvilleHousing
+--WHERE PropertyAddress IS NULL
+ORDER BY ParcelID
+								
+SELECT a.ParcelID, a.PropertyAddress, b.ParcelID, b.PropertyAddress, ISNULL(a.PropertyAddress, b.PropertyAddress)
+FROM NashvilleHousing a
+JOIN NashvilleHousing b
+	ON a.ParcelID = b.ParcelID
+	AND a.[UniqueID ] != b.[UniqueID ]
+WHERE a.PropertyAddress IS NULL
+								
+UPDATE a
+SET PropertyAddress = ISNULL(a.PropertyAddress, b.PropertyAddress)
+FROM NashvilleHousing a
+JOIN NashvilleHousing b
+	ON a.ParcelID = b.ParcelID
+	AND a.[UniqueID ] != b.[UniqueID ]
+WHERE a.PropertyAddress IS NULL 
+							</code></pre> 
+							<p>Next, I wanted to break up the addresses into Address, City, and State. We start with the Property Address, which can be broken up into Address and City. I use SUBSTRING to break Property Address up where the comma is.</p>
+							<pre><code>
+SELECT 
+	SUBSTRING(PropertyAddress, 1, CHARINDEX(',', PropertyAddress)-1) AS Address
+	, SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress)+1, LEN(PropertyAddress)) AS City
+FROM NashvilleHousing
+							
+ALTER TABLE NashvilleHousing
+ADD PropertySplitAddress Nvarchar(255);
+							
+UPDATE NashvilleHousing
+SET PropertySplitAddress = SUBSTRING(PropertyAddress, 1, CHARINDEX(',', PropertyAddress)-1)
+							
+ALTER TABLE NashvilleHousing
+ADD PropertySplitCity Nvarchar(255);
+							
+UPDATE NashvilleHousing
+SET PropertySplitCity = SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress)+1, LEN(PropertyAddress))
+							</code></pre> 
+							<p>Next, the Owner Address can be broken up into Address, City, and State. I do this with PARSENAME instead, and REPLACE to change the commas in the field to periods so that PARSENAME may function.</p>	
+							<pre><code>
+SELECT
+	PARSENAME(REPLACE(OwnerAddress, ',', '.'), 3), 
+	PARSENAME(REPLACE(OwnerAddress, ',', '.'), 2), 
+	PARSENAME(REPLACE(OwnerAddress, ',', '.'), 1)
+FROM NashvilleHousing
+							
+ALTER TABLE NashvilleHousing
+ADD OwnerSplitAddress Nvarchar(255);
+							
+UPDATE NashvilleHousing
+SET OwnerSplitAddress = PARSENAME(REPLACE(OwnerAddress, ',', '.'), 3)
+							
+ALTER TABLE NashvilleHousing
+ADD PropertySplitCity Nvarchar(255);
+							
+UPDATE NashvilleHousing
+SET PropertySplitCity = PARSENAME(REPLACE(OwnerAddress, ',', '.'), 2)
+							
+ALTER TABLE NashvilleHousing
+ADD PropertySplitState Nvarchar(255);
+							
+UPDATE NashvilleHousing
+SET PropertySplitState = PARSENAME(REPLACE(OwnerAddress, ',', '.'), 1)
+							</code></pre>
+							<p>Next, I wanted to standardize the SoldAsVacant column. Looking through the dataset, we see that there are four unqiue values in the SoldAsVacant field: Yes, No, Y, and N. I use CASEWHEN to change the "Y"s to "Yes"es and the "N"s to "No"s. </p>
+							<pre><code>
+SELECT 
+	SoldAsVacant,
+	CASE WHEN SoldAsVacant = 'Y' THEN 'Yes'
+		WHEN SoldAsVacant = 'N' THEN 'No'
+		ELSE SoldAsVacant 
+		END
+FROM NashvilleHousing
+
+Update NashvilleHousing
+SET SoldAsVacant = CASE WHEN SoldAsVacant = 'Y' THEN 'Yes'
+	WHEN SoldAsVacant = 'N' THEN 'No'
+	ELSE SoldAsVacant 
+	END
+							</code></pre>
+							<p>Next, it's time to remove duplicates. I use WITH to create a CTE with the data partioned by the Parcel ID, Property Address, Sale Price, Sale Date, and Legel Reference number. We can reasonably assume records with identical menioned fields are duplicates. I order this CTE by the Unique ID and include row_num to find duplicates in the dataset. These will be the records with a row_num greater than 1, which I delete from the dataset.</p>
+							<pre><code>
+WITH RowNumCTE AS(
+SELECT *,
+	ROW_NUMBER() OVER (
+		PARTITION BY ParcelID,
+			PropertyAddress,
+			SalePrice,
+			SaleDate,
+			LegalReference
+				ORDER BY
+					UniqueID
+					) row_num
+FROM NashvilleHousing
+--ORDER BY ParcelID
+)
+
+DELETE
+FROM RowNumCTE
+WHERE row_num > 1
+							</code></pre>
+							<p>Lastly and finally, let's remove unused columns from the dataset.</p>
+							<pre><code>
+ALTER TABLE NashvilleHousing
+DROP COLUMN OwnerAddress, TaxDistrict, PropertyAddress, SaleDate
+							</code></pre>
+							<p>Our final result is a <a href="https://github.com/emilytics/PortfolioProjects/blob/Projects/Cleaned%20NashvilleHousing.xlsx">cleaned dataset</a> that will be much easier to use for analysis.</p>
+							<p>Thank you for reading until the end. My full query script is accessible on <a href="https://github.com/emilytics/PortfolioProjects/blob/Projects/Queries%20for%20Cleaning%20NashvilleHousing.sql">Github</a>.</p>
+					</div>
+					</div>
+
+				<!-- Footer -->
+				<footer id="footer">
+					<div class="inner">
+						<section>
+							<h2>Get in touch</h2>
+							<p>ftemilyphan@gmail.com 
+							<br>(408) 775-5341<p>
+						</section>
+						<section>
+							<h2>Follow</h2>
+							<ul class="icons">
+								<li><a href="https://linkedin.com/in/emily-phan-49421613b" class="icon brands style2 fa-linkedin"><span class="label">Dribbble</span></a></li>
+								<li><a href="https://github.com/emilytics/PortfolioProjects" class="icon brands style2 fa-github"><span class="label">GitHub</span></a></li>
+							</ul>
+						</section>
+						<ul class="copyright">
+							<li>&copy; Emilytics. All rights reserved</li>
+						</ul>
+					</div>
+				</footer>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="assets/js/jquery.min.js"></script>
+			<script src="assets/js/browser.min.js"></script>
+			<script src="assets/js/breakpoints.min.js"></script>
+			<script src="assets/js/util.js"></script>
+			<script src="assets/js/main.js"></script>
+
+	</body>
+</html>
