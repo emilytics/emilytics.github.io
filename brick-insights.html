@@ -1,0 +1,247 @@
+<!DOCTYPE HTML>
+<!--
+	Phantom by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>Brick Insights: Unveiling LEGO's Data Universe</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
+	</head>
+	<body class="is-preload">
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Header -->
+					<header id="header">
+						<div class="inner">
+
+							<!-- Logo -->
+								<a href="index.html" class="logo">
+									<span class="symbol"><img src="images/logo.svg" alt="" /></span><span class="title">Emilytics</span>
+								</a>
+
+							<!-- Nav -->
+								<nav>
+									<ul>
+										<li><a href="#menu">Menu</a></li>
+									</ul>
+								</nav>
+
+						</div>
+					</header>
+
+				<!-- Menu -->
+					<nav id="menu">
+						<h2>Menu</h2>
+						<ul>
+							<li><a href="index.html">Home</a></li>
+							<li><a href="brick-insights.html">Brick Insights: Unveiling LEGO's Data Universe</a></li>
+							<li><a href="analyzing-global-covid-19-impact.html">Analyzing Global COVID-19 Impact</a></li>
+							<li><a href="a-deeper-redive-into-covid.html">A Deeper Redive Into COVID</a></li>
+							<li><a href="cleaning-nashville-housing-data-in-sql.html">Cleaning Nashville Housing Data in SQL</a></li>
+						</ul>
+					</nav>
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner">
+							<h1>Brick Insights: Unveiling LEGO's Data Universe</h1>
+							<b>Tools Used:</b><p>Microsoft SQL Server, Excel, Tableau, MecaBricks</p>
+							<span class="image main"><img src="images/LEGO-brickscropped.jpg" alt="" /></span>
+							<p>In this project, I embarked on a colorful journey through queries and data visualizations to decode the trends and stories woven within LEGO's iconic bricks. You can follow along with me by downloading <a href="https://www.kaggle.com/datasets/jkraak/lego-sets-and-themes-database">this dataset from Kaggle</a> and using my queries in SQL Server.</p>
+							<p>After importing the data into Microsoft SQL Server, I got started on my queries. I first wanted to look at how the average LEGO set size (in terms of number of parts) has changed over time. To achieve this, I wrote the following query to pull the year released and the average number of parts in the sets released that year:</p>
+							<pre><code> 
+SELECT 
+	year_released, 
+	ROUND(AVG(number_of_parts), 1) AS avg_num_parts
+FROM lego_sets_and_themes$
+WHERE year_released IS NOT NULL
+GROUP BY year_released
+ORDER BY year_released
+							</code></pre> 
+							<p>Here is a preview of what the output of this query looks like:</p>
+							<img src="images/legoquery1.png" alt="" style="width:212px;height:411px;">
+							<br><br>
+							<p>Throwing this into Tableau, we get this visualization:</p>
+							<span class="image main"><img src="images/legoquery1viz.png" alt="" /></span>
+							<p>Next, I wanted to explore how different themes have evolved in terms of the average set size. To achieve this, I wrote this query to pull each theme's average set size (in terms of number of parts):</p>
+							<pre><code>
+SELECT 
+	theme_name, 
+	ROUND(AVG(number_of_parts), 1) AS avg_num_parts
+FROM lego_sets_and_themes$
+GROUP BY theme_name
+ORDER BY avg_num_parts DESC 
+							</code></pre> 
+							<p>This query returns the following result:</p>
+							<img src="images/legoquery2.png" alt="" style="width:274px;height:412px;">
+							<br><br>
+							<p>Visualizing this with Tableau gets us the following result:</p>
+							<div class='tableauPlaceholder' id='viz1693521584699' style='position: relative'><noscript><a href='#'><img alt=' ' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;K8&#47;K8QJJQ2MY&#47;1_rss.png' style='border: none' /></a></noscript><object class='tableauViz'  style='display:none;'><param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' /> <param name='embed_code_version' value='3' /> <param name='path' value='shared&#47;K8QJJQ2MY' /> <param name='toolbar' value='yes' /><param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;K8&#47;K8QJJQ2MY&#47;1.png' /> <param name='animate_transition' value='yes' /><param name='display_static_image' value='yes' /><param name='display_spinner' value='yes' /><param name='display_overlay' value='yes' /><param name='display_count' value='yes' /><param name='language' value='en-US' /></object></div>                <script type='text/javascript'>                    var divElement = document.getElementById('viz1693521584699');                    var vizElement = divElement.getElementsByTagName('object')[0];                    vizElement.style.width='100%';vizElement.style.height=(divElement.offsetWidth*0.75)+'px';                    var scriptElement = document.createElement('script');                    scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';                    vizElement.parentNode.insertBefore(scriptElement, vizElement);                </script>
+							<br><br>
+							<p>Next, I wanted to know what the most popular theme of each year was, and how many sets were released in that theme that year. First, I wrote this query to partition the data by the year released and to order the themes released by the number of sets released in descending order. I added a column to rank these themes based on that order.</p>
+							<pre><code>
+SELECT
+        year_released,
+        theme_name,
+        COUNT(theme_name) AS num_of_sets,
+        ROW_NUMBER() OVER(PARTITION BY year_released ORDER BY COUNT(theme_name) DESC) AS theme_rank
+FROM lego_sets_and_themes$
+WHERE year_released IS NOT NULL
+GROUP BY year_released, theme_name
+							</code></pre> 
+							<p>This query gives us an output that looks like this:</p>	
+							<img src="images/legoquery3cte.png" alt="" style="width:367px;height:410px;">
+							<br><br>
+							<p>However, I only want the most popular theme of the year, so I create a CTE with this query and pull only the rank 1 results.</p>	
+							<pre><code>
+WITH RankedThemes AS
+(
+    SELECT
+        year_released,
+        theme_name,
+        COUNT(theme_name) AS num_of_sets,
+        ROW_NUMBER() OVER(PARTITION BY year_released ORDER BY COUNT(theme_name) DESC) AS theme_rank
+    FROM lego_sets_and_themes$
+    WHERE year_released IS NOT NULL
+    GROUP BY year_released, theme_name
+)
+SELECT year_released, theme_name, num_of_sets
+FROM RankedThemes
+WHERE theme_rank = 1
+ORDER BY year_released
+							</code></pre>
+							<p>So now we only see the most popular theme of each year, and the number of sets that were released in that theme that year.</p>
+							<img src="images/legoquery3.png" alt="" style="width:296px;height:412px;">
+							<br><br>
+							<p>This data can be put into a typical bar chart. However, I wanted to to use LEGO brick towers instead of typical bars in this visual, so I used <a href="https://www.mecabricks.com/en/workshop">MecaBricks</a> to render 23 different colored (for 23 different LEGO theme names) 1x1 lego bricks as the basis for my brick tower bar chart.</p>
+							<img src="images/download (5).png" alt="" style="width:50px;height: 67px;"><img src="images/download (6).png" alt="" style="width:50px;height: 67px;"><img src="images/download (7).png" alt="" style="width:50px;height: 67px;"><img src="images/download (8).png" alt="" style="width:50px;height: 67px;"><img src="images/download (9).png" alt="" style="width:50px;height: 67px;"><img src="images/download (10).png" alt="" style="width:50px;height: 67px;"><img src="images/download (11).png" alt="" style="width:50px;height: 67px;"><img src="images/download (12).png" alt="" style="width:50px;height: 67px;"><img src="images/download (13).png" alt="" style="width:50px;height: 67px;"><img src="images/download (14).png" alt="" style="width:50px;height: 67px;"><img src="images/download (15).png" alt="" style="width:50px;height: 67px;"><img src="images/download (16).png" alt="" style="width:50px;height: 67px;"><img src="images/download (17).png" alt="" style="width:50px;height: 67px;"><img src="images/download (18).png" alt="" style="width:50px;height: 67px;"><img src="images/download (19).png" alt="" style="width:50px;height: 67px;"><img src="images/download (20).png" alt="" style="width:50px;height: 67px;"><img src="images/download (21).png" alt="" style="width:50px;height: 67px;"><img src="images/download (22).png" alt="" style="width:50px;height: 67px;"><img src="images/download (23).png" alt="" style="width:50px;height: 67px;"><img src="images/download (24).png" alt="" style="width:50px;height: 67px;"><img src="images/download (25).png" alt="" style="width:50px;height: 67px;"><img src="images/download (26).png" alt="" style="width:50px;height: 67px;"><img src="images/download (27).png" alt="" style="width:50px;height: 67px;">
+							<p> I then had to create custom calculated fields to be able to plot these bricks into towers. The result, is the following:</p>
+							<span class="image main"><img src="images/legoquery3viz.png" alt="" /></span>
+							<p>Lastly, I wanted to create a word cloud to show the most commonly used words in LEGO set names. This is when it starts getting complicated. I approached this by first had to writing a query to extract each word out of the set names. I approached this by replacing the spaces in between words with periods and using PARSENAME to then extract each of the words out of the set name, and into their own column.</p>
+							<pre><code>
+SELECT
+	set_name,
+	--PARSENAME(REPLACE(set_name, ' ', '.'), 5),
+	PARSENAME(REPLACE(set_name, ' ', '.'), 4) AS word1, 
+	PARSENAME(REPLACE(set_name, ' ', '.'), 3) AS word2, 
+	PARSENAME(REPLACE(set_name, ' ', '.'), 2) AS word3, 
+	PARSENAME(REPLACE(set_name, ' ', '.'), 1)AS word4
+FROM lego_sets_and_themes$
+	--WHERE PARSENAME(REPLACE(set_name, ' ', '.'), 5) IS NOT NULL
+							</code></pre>
+							<p>Running this query, we get each words extracted from the set names, as desired.</p>
+							<img src="images/legoquery4extract.png" alt="" style="width:510px;height: 412px;">
+							<br><br>
+							<p>Currently, the extracted words are all in different columns, so the next thing I needed to do was to combine the four columns into one. I achieved this by creating a CTE with the previous query, and using UNION ALL to combine the four columns into one, like so:</p>
+							<pre><code>
+WITH WordCloudCTE AS(
+	SELECT
+		set_name,
+		PARSENAME(REPLACE(set_name, ' ', '.'), 4) AS word1, 
+		PARSENAME(REPLACE(set_name, ' ', '.'), 3) AS word2, 
+		PARSENAME(REPLACE(set_name, ' ', '.'), 2) AS word3, 
+		PARSENAME(REPLACE(set_name, ' ', '.'), 1)AS word4
+	FROM lego_sets_and_themes$
+)SELECT word1
+	FROM WordCloudCTE
+	UNION ALL
+	SELECT word2
+	FROM WordCloudCTE
+	UNION ALL
+	SELECT word3
+	FROM WordCloudCTE
+	UNION ALL
+	SELECT word4
+	FROM WordCloudCTE
+							</code></pre>
+							<p>This gives us all of our extracted words in a single column.</p>
+							<img src="images/legoquery4union.png" alt="" style="width:177px;height: 412px;">
+							<br><br>
+							<p>Of course, we need to remove all of the nulls from this list. After scanning through the list, I found words with commas, parentheses, dashes, etc. attached to them, so I use REPLACE to eliminate these characters so we have a list of only words. I also remove common words such as "the", "in", "for", etc. and other values that are not words. I also now need to group all of the common words together, and count how many times each word appears in the LEGO set names. I do this using COUNT and GROUP BY. I am also only interested in words that appear more than once in the set names. The result is the following query:</p>
+							<pre><code>
+WITH WordCloudCTE AS
+(
+	SELECT
+		set_name,
+		PARSENAME(REPLACE(set_name, ' ', '.'), 4) AS word1, 
+		PARSENAME(REPLACE(set_name, ' ', '.'), 3) AS word2, 
+		PARSENAME(REPLACE(set_name, ' ', '.'), 2) AS word3, 
+		PARSENAME(REPLACE(set_name, ' ', '.'), 1)AS word4
+	FROM lego_sets_and_themes$
+)
+SELECT 
+	REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(word1, '(', ''), ')', ''), '{', ''), '}', ''), ':', ''), ',', ''), '!', '') AS Word,
+	COUNT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(word1, '(', ''), ')', ''), '{', ''), '}', ''), ':', ''), ',', ''), '!', '')) AS Count
+FROM (
+	SELECT word1
+	FROM WordCloudCTE
+	UNION ALL
+	SELECT word2
+	FROM WordCloudCTE
+	UNION ALL
+	SELECT word3
+	FROM WordCloudCTE
+	UNION ALL
+	SELECT word4
+	FROM WordCloudCTE
+	) AS WordList
+WHERE word1 NOT IN ('NULL', 'at', 'for', 'from', 'I', 'II', 'in', 'it', 'the', '-', '--', '#1', '#2', '#3', '#4', '#5', '#6', '#7', '#8', '&', '(1)', '(13)', '(17)', '(18)', '(19)', '(2)', '(20)', '(2012', '(2015', '(21)', '(23)', '(4', '(42', '(5)', '(6', '(4)', '(6)', '(7)', '(8)', '(9)', 'and', '/', '+', '0', 'with', 'of', '07', '1', '-1-', '1/2', '1/3', '1', '110', '117', '124', '1300', '155', '18', '187', '19', '10', '100', '1001', '1030', '1032', '1090', '1092', '1100', '12', '1-2', '1210-2', '123', '1-2-3', '125', '128cm', '13', '1307-1', '1308-1', '1500', '150°', '16', '17M', '1800', '19', '1909', '1913', '1926', '1965', '1968', '1969', '1970', '1989', '1992', '1999', '2', '-2-', '20', '200', '2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024', '21', '210-2', '220', '24', '248', '25', '250', '258-2', '259-1', '25th', '2-6', '260', '2600', '261-2', '3', '-3-', '3+', '300', '3000', '307-2', '308-3', '310-5', '3245', '33', '35', '350', '37', '38', '3×3', '4', '4+', '40', '400-Piece', '42mm', '430', '45', '458', '4614581-1', '47', '48', '488', '5', '50', '500', '512', '52', '560-4', '6', '6000', '626', '64', '6500', '697', '7', '727', '7777', '787', '8', '8-', '800', '8000', '812', '85', '8748-1', '8888', '8889', '8890', '8891', '9', '90', '911', '918', '919', '963', '9654', '9800', 'a', '110')
+GROUP BY word1
+HAVING COUNT(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(word1, '(', ''), ')', ''), '{', ''), '}', ''), ':', ''), ',', ''), '!', '')) > 1
+ORDER BY Count DESC
+							</code></pre>
+							<p>This monster of a query, that can take a while to run due to its complicated nature, gives us the following output:</p>
+							<img src="images/legoquery4.png" alt="" style="width:177px;height: 409px;">
+							<br><br>
+							<p>I can then use this data to create a word cloud with Tableau.</p>
+							<span class="image main"><img src="images/legoquery4viz.png" alt="" /></span>
+							<p>FINALLY, I present you the completed dashboard. Please view on desktop for optimal experience.</p>
+							<div class='tableauPlaceholder' id='viz1693532072664' style='position: relative'><noscript><a href='#'><img alt='BRICK INSIGHTS: UNVEILING LEGO&#39;S DATA UNIVERSE t ' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;LE&#47;LEGOSetsandThemes&#47;Dashboard1&#47;1_rss.png' style='border: none' /></a></noscript><object class='tableauViz'  style='display:none;'><param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' /> <param name='embed_code_version' value='3' /> <param name='site_root' value='' /><param name='name' value='LEGOSetsandThemes&#47;Dashboard1' /><param name='tabs' value='no' /><param name='toolbar' value='yes' /><param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;LE&#47;LEGOSetsandThemes&#47;Dashboard1&#47;1.png' /> <param name='animate_transition' value='yes' /><param name='display_static_image' value='yes' /><param name='display_spinner' value='yes' /><param name='display_overlay' value='yes' /><param name='display_count' value='yes' /><param name='language' value='en-US' /><param name='filter' value='publish=yes' /></object></div>                <script type='text/javascript'>                    var divElement = document.getElementById('viz1693532072664');                    var vizElement = divElement.getElementsByTagName('object')[0];                    if ( divElement.offsetWidth > 800 ) { vizElement.style.width='1709px';vizElement.style.height='3627px';} else if ( divElement.offsetWidth > 500 ) { vizElement.style.width='100%';vizElement.style.height='3227px';} else { vizElement.style.width='100%';vizElement.style.height='2827px';}                     var scriptElement = document.createElement('script');                    scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';                    vizElement.parentNode.insertBefore(scriptElement, vizElement);                </script>
+							<br><br>
+							<p>Thank you for reading until the end. Here are the associated links with this project:</p>
+							<li><a href="https://www.kaggle.com/datasets/jkraak/lego-sets-and-themes-database">Data Source</a></li>
+							<li><a href="https://public.tableau.com/app/profile/emily.tableau5908/viz/LEGOSetsandThemes/Dashboard1?publish=yes">Tableau Dashboard</a></li>
+							<li><a href="https://www.mecabricks.com/en/workshop">Brick Rendering</a></li>
+							<li><a href="https://github.com/emilytics/PortfolioProjects/blob/Projects/LEGO%20Queries.sql">Full Query Script</a></li>
+							<li><a href="https://www.youtube.com/watch?v=AoB2PmZqvpc">Creating 3D Bar Chart</a></li>
+					</div>
+					</div>
+
+				<!-- Footer -->
+				<footer id="footer">
+					<div class="inner">
+						<section>
+							<h2>Get in touch</h2>
+							<p>ftemilyphan@gmail.com 
+							<br>(408) 775-5341<p>
+						</section>
+						<section>
+							<h2>Follow</h2>
+							<ul class="icons">
+								<li><a href="https://linkedin.com/in/emily-phan-49421613b" class="icon brands style2 fa-linkedin"><span class="label">Dribbble</span></a></li>
+								<li><a href="https://github.com/emilytics/PortfolioProjects" class="icon brands style2 fa-github"><span class="label">GitHub</span></a></li>
+							</ul>
+						</section>
+						<ul class="copyright">
+							<li>&copy; Emilytics. All rights reserved</li>
+						</ul>
+					</div>
+				</footer>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="assets/js/jquery.min.js"></script>
+			<script src="assets/js/browser.min.js"></script>
+			<script src="assets/js/breakpoints.min.js"></script>
+			<script src="assets/js/util.js"></script>
+			<script src="assets/js/main.js"></script>
+
+	</body>
+</html>
