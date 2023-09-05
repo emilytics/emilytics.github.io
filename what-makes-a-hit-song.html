@@ -1,0 +1,304 @@
+<!DOCTYPE HTML>
+<!--
+	Phantom by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>What Makes a Hit Song?</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
+	</head>
+	<body class="is-preload">
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Header -->
+					<header id="header">
+						<div class="inner">
+
+							<!-- Logo -->
+								<a href="index.html" class="logo">
+									<span class="symbol"><img src="images/logo.svg" alt="" /></span><span class="title">Emilytics</span>
+								</a>
+
+							<!-- Nav -->
+								<nav>
+									<ul>
+										<li><a href="#menu">Menu</a></li>
+									</ul>
+								</nav>
+
+						</div>
+					</header>
+
+				<!-- Menu -->
+					<nav id="menu">
+						<h2>Menu</h2>
+						<ul>
+							<li><a href="index.html">Home</a></li>
+							<li><a href="what-makes-a-hit-song.html">What Makes a Hit Song?</a></li>
+							<li><a href="brick-insights.html">Brick Insights: Unveiling LEGO's Data Universe</a></li>
+							<li><a href="analyzing-global-covid-19-impact.html">Analyzing Global COVID-19 Impact</a></li>
+							<li><a href="a-deeper-redive-into-covid.html">A Deeper Redive Into COVID</a></li>
+							<li><a href="cleaning-nashville-housing-data-in-sql.html">Cleaning Nashville Housing Data in SQL</a></li>
+						</ul>
+					</nav>
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner">
+							<h1>What Makes a Hit Song?</h1>
+							<b>Tools Used:</b><p>Microsoft SQL Server, Excel, Tableau</p>
+							<span class="image main"><img src="images/spotifycropped.jpg" alt="" /></span>
+							<p>In this project, I embarked on a captivating journey through data analysis and visualization, leveraging my skills in SQL, Excel, and Tableau to uncover the hidden stories within Spotify's top-streamed songs of 2023. The final dashboard and associated links to this project are included at the end.</p>
+							<h2>Key Question: What makes a hit song?</h2>
+							<p>We are using data of the top streamed songs on Spotify of 2023 from Kaggle.</p>
+							<span class="image main"><img src="images/spotifyall.png" alt="" /></span>
+							<p>I first started by importing the <a href="https://www.kaggle.com/datasets/nelgiriyewithana/top-spotify-songs-2023">data</a> into Microsoft SQL Server. I then got started on my queries. I first wanted to see which artists are behind the most tracks in the dataset. However, many songs have multiple artists, who are named all in the same column. Before I can count up all the artists, I first need to extract all of the artists out of the artist(s)_name column. I first attempt to do this by using PARSENAME. However, I run into trouble because PARSENAME has an extract limit of four, and the maximum number of artists for one song in the dataset is eight. Additionally, there are a couple of artists in the dataset with periods in their name, which would not allow the PARSENAME function to extract as I want. My solution to this is to create a custom function that can extract the artists without limit. The following custom function does as such. It also allows me to input my own delimeter, so I don't need to use REPLACE like I would with PARSENAME, and the function will still be able to extract artists with periods in their name properly.</p>  
+							<pre><code> 
+CREATE FUNCTION dbo.CustomPARSENAME (
+    @String NVARCHAR(MAX),
+    @Delimiter CHAR(1),
+    @Part INT
+)
+RETURNS NVARCHAR(MAX)
+AS
+BEGIN
+    DECLARE @Result NVARCHAR(MAX)
+    DECLARE @DelimiterCount INT
+
+    -- Initialize variables
+    SET @Result = NULL  -- Initialize to NULL
+    SET @DelimiterCount = 0
+
+    -- Loop through the string
+    WHILE LEN(@String) > 0
+    BEGIN
+        SET @DelimiterCount = @DelimiterCount + 1
+        DECLARE @NextDelimiterPosition INT
+        SET @NextDelimiterPosition = CHARINDEX(@Delimiter, @String)
+
+        IF @NextDelimiterPosition > 0
+        BEGIN
+            -- Found a delimiter, extract the part if it matches the requested part number
+            IF @DelimiterCount = @Part
+                SET @Result = SUBSTRING(@String, 1, @NextDelimiterPosition - 1)
+            
+            -- Remove the extracted part and delimiter from the string
+            SET @String = SUBSTRING(@String, @NextDelimiterPosition + 1, LEN(@String) - @NextDelimiterPosition)
+        END
+        ELSE
+        BEGIN
+            -- No more delimiters, treat the whole string as the last part if it matches the requested part number
+            IF @DelimiterCount = @Part
+                SET @Result = @String
+            
+            -- Exit the loop
+            BREAK
+        END
+    END
+
+    RETURN @Result
+END
+							</code></pre> 
+							<p>Now I can use this custom function, dbo.CustomPARSENAME(), to extract each artist out of the artist(s)_name column.</p>
+							<pre><code>
+SELECT
+	track_name,
+	[artist(s)_name], 
+	artist_count,
+	dbo.CustomPARSENAME([artist(s)_name], ', ', 8) AS artist_8,
+	dbo.CustomPARSENAME([artist(s)_name], ', ', 7) AS artist_7,
+	dbo.CustomPARSENAME([artist(s)_name], ', ', 6) AS artist_6,
+	dbo.CustomPARSENAME([artist(s)_name], ', ', 5) AS artist_5,
+	dbo.CustomPARSENAME([artist(s)_name], ', ', 4) AS artist_4,
+	dbo.CustomPARSENAME([artist(s)_name], ', ', 3) AS artist_3,
+	dbo.CustomPARSENAME([artist(s)_name], ', ', 2) AS artist_2,
+	dbo.CustomPARSENAME([artist(s)_name], ', ', 1) AS artist_1
+FROM ['spotify-2023$']
+							</code></pre>
+							<img src="images/spotifyextract.png" alt="" style="width:1021px;height:412px;">
+							<br><br>
+							<p>I now need to get all these extracted artists into one column so that I can count them up. I do this by creating a CTE with the previous output and using UNION ALL to stack the eight coulumns on top of each other. I noticed that there were some trailing spaces in the artist names, so I also TRIM the artist names. And of course, we have to remove all of the nulls. I use COUNT and GROUP BY to count how many times each artist appears in the dataset, and I have SQL return the results to me in descending order of number of appearances.</p>
+							<pre><code>
+WITH SplitArtistsCTE AS
+(
+	SELECT
+		track_name,
+		[artist(s)_name], 
+		artist_count,
+		dbo.CustomPARSENAME([artist(s)_name], ', ', 8) AS artist_8,
+		dbo.CustomPARSENAME([artist(s)_name], ', ', 7) AS artist_7,
+		dbo.CustomPARSENAME([artist(s)_name], ', ', 6) AS artist_6,
+		dbo.CustomPARSENAME([artist(s)_name], ', ', 5) AS artist_5,
+		dbo.CustomPARSENAME([artist(s)_name], ', ', 4) AS artist_4,
+		dbo.CustomPARSENAME([artist(s)_name], ', ', 3) AS artist_3,
+		dbo.CustomPARSENAME([artist(s)_name], ', ', 2) AS artist_2,
+		dbo.CustomPARSENAME([artist(s)_name], ', ', 1) AS artist_1
+	FROM ['spotify-2023$']
+)
+SELECT
+	LTRIM(RTRIM(artist_1)) AS trimmed_artist,
+	COUNT(artist_1) AS artist_count
+FROM
+(
+	SELECT artist_1
+	FROM SplitArtistsCTE
+	UNION ALL
+	SELECT artist_2
+	FROM SplitArtistsCTE
+	UNION ALL
+	SELECT artist_3
+	FROM SplitArtistsCTE
+	UNION ALL
+	SELECT artist_4
+	FROM SplitArtistsCTE
+	UNION ALL
+	SELECT artist_5
+	FROM SplitArtistsCTE
+	UNION ALL
+	SELECT artist_6
+	FROM SplitArtistsCTE
+	UNION ALL
+	SELECT artist_7
+	FROM SplitArtistsCTE
+	UNION ALL
+	SELECT artist_8
+	FROM SplitArtistsCTE
+) AS artist_list
+WHERE artist_1 IS NOT NULL
+GROUP BY LTRIM(RTRIM(artist_1))
+ORDER BY artist_count DESC
+							</code></pre> 
+							<p>This gives us the following result:</p>
+							<img src="images/spotifyartistcount.png" alt="" style="width:199px;height:409px;">
+							<br><br>
+							<p>I put this output into Excel and use that as a data source for Tableau to create a bar chart to show the artists behind the most tracks in the top streamed songs on Spotify of 2023. I decided to only include the top 10 in my visual. I also utilize a lollipop bar chart design to take after the Spotify track scrubber.</p>
+							<img src="images/spotifyscrubber.png" alt="" style="width:394px;height:31px;">
+							<p>We get the following visual in the end.</p>
+							<span class="image main"><img src="images/spotifyviz1.png" alt="" /></span>
+							<p>Next I wanted to analyze whether there are any patterns in the release dates of popular songs. The release date in the dataset is given as integers in three separate columns: year, month (1-12), day (1-31). In my query, I want to pull the release date into one column in date format. I achieve this with CAST and CONVERT. Along with the date, I pull the track name, artist(s), and number of streams. I also only pull the top 100 tracks based on number of streams so we only look at trends with the most popular songs.</p>
+							<pre><code>
+SELECT
+	TOP 100 track_name,
+	[artist(s)_name],
+	streams,
+	CAST(CONVERT(NVARCHAR(4), [released_year]) + '-' + 
+			 RIGHT('0' + CONVERT(NVARCHAR(2), [released_month]), 2) + '-' + 
+			 RIGHT('0' + CONVERT(NVARCHAR(2), [released_day]), 2) AS DATE) AS release_date
+FROM ['spotify-2023$']
+ORDER BY streams DESC
+							</code></pre> 
+							<p>This query returns the following result:</p>
+							<img src="images/spotifydate.png" alt="" style="width:586px;height:409px;">
+							<br><br>
+							<p>I did not end up including this in my final dashboard, but visualizing this with Tableau gets us the following result:</p>
+							<span class="image main"><img src="images/spotifydateviz.png" alt="" /></span>
+							<p>Though older songs may have had more time to accumulate streams, we see a preference for newer songs.</p>
+							<p>Next I wanted to find any correlations between song characteristics (e.g. danceability, valence, energy) and the number of streams. I write the following query to get the relevant data needed:</p>	
+							<pre><code>
+SELECT
+	track_name,
+	[artist(s)_name],
+	streams,
+	bpm,
+	[key]+' '+mode AS key_mode,
+	[danceability_%],
+	[energy_%],
+	[acousticness_%],
+	[instrumentalness_%],
+	[liveness_%],
+	[speechiness_%]
+FROM ['spotify-2023$']
+ORDER BY streams DESC
+							</code></pre>
+							<p>This query gives us the following output:</p>
+							<img src="images/spotifydc.png" alt="" style="width:1114px;height:411px;">
+							<br><br>
+							<p> I use this data to create scatter plots to visualize number of streams vs. each of the song characteristics, wth trend lines included.</p>
+							<span class="image main"><img src="images/spotifyscatter.png" alt="" /></span>
+							<p>Next, I wanted to look at the impact of playlists and charts across several platforms on the number of Spotify streams. I write the following query to pull the relevant data needed:</p>
+							<pre><code>
+SELECT
+	track_name,
+	[artist(s)_name],
+	streams,
+	in_spotify_playlists,
+	in_spotify_charts,
+	in_apple_playlists,
+	in_apple_charts,
+	in_deezer_playlists,
+	in_deezer_charts,
+	in_shazam_charts
+FROM ['spotify-2023$']
+ORDER BY streams DESC
+							</code></pre>
+							<p>Running this query gives us the following output:</p>
+							<img src="images/spotifypc.png" alt="" style="width:1198px;height: 411px;">
+							<br><br>
+							<p>I then use Tableau to create scatter plots to show and compare the impact of being in playlists and charts across different platforms on the number of Spotify streams.</p>
+							<span class="image main"><img src="images/spotifyplaylistviz.png" alt="" /></span>
+							<span class="image main"><img src="images/spotifychartsviz.png" alt="" /></span>
+							<p>Finally, I wanted to create histograms to visualize the distributions of audio features like BPM and song key. The dataset had two columns for key (i.e. A, A#, B etc.) and mode (major vs. minor), but I wanted to combine these two to simply show the keys as "A Major", for example. I write a query to pull the data needed for these histograms, and to combine the key and mode columns.</p>
+							<pre><code>
+SELECT
+	track_name,
+	[artist(s)_name],
+	streams,
+	bpm,
+	[key]+' '+mode AS key_mode
+FROM ['spotify-2023$']
+							</code></pre>
+							<p>This query gives us the following result:</p>
+							<img src="images/spotifykey.png" alt="" style="width:643px;height: 409px;">
+							<br><br>
+							<p>Tableau helps us create a histogram to show the distribution of top songs streamed on Spotify of 2023 across different beats per minute (bpm), and across different keys. Since the key "histogram" is technically just a bar chart, I can make make the key histogram take after the Spotify scrubber as well.</p>
+							<img src="images/spotifybpmviz.png" alt="" style="width:669px;height: 374px;">
+							<img src="images/spotifykeyviz.png" alt="" style="width:669px;height: 373px;">
+							<p>Finally, we can throw all of the visualizations together into one dashboard:</p>
+							<div class='tableauPlaceholder' id='viz1693883759806' style='position: relative'><noscript><a href='#'><img alt='WHAT MAKESAHIT SONG? ' src='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;Wh&#47;WhatMakesaHitSongAnalyzingTheTopStreamedSongsonSpotify2023&#47;Dashboard1&#47;1_rss.png' style='border: none' /></a></noscript><object class='tableauViz'  style='display:none;'><param name='host_url' value='https%3A%2F%2Fpublic.tableau.com%2F' /> <param name='embed_code_version' value='3' /> <param name='site_root' value='' /><param name='name' value='WhatMakesaHitSongAnalyzingTheTopStreamedSongsonSpotify2023&#47;Dashboard1' /><param name='tabs' value='no' /><param name='toolbar' value='yes' /><param name='static_image' value='https:&#47;&#47;public.tableau.com&#47;static&#47;images&#47;Wh&#47;WhatMakesaHitSongAnalyzingTheTopStreamedSongsonSpotify2023&#47;Dashboard1&#47;1.png' /> <param name='animate_transition' value='yes' /><param name='display_static_image' value='yes' /><param name='display_spinner' value='yes' /><param name='display_overlay' value='yes' /><param name='display_count' value='yes' /><param name='language' value='en-US' /></object></div>                <script type='text/javascript'>                    var divElement = document.getElementById('viz1693883759806');                    var vizElement = divElement.getElementsByTagName('object')[0];                    vizElement.style.width='1366px';vizElement.style.height='3727px';                    var scriptElement = document.createElement('script');                    scriptElement.src = 'https://public.tableau.com/javascripts/api/viz_v1.js';                    vizElement.parentNode.insertBefore(scriptElement, vizElement);                </script>
+							<br><br>
+							<p>Thank you for reading until the end. Here are the associated links with this project:</p>
+							<li><a href="https://www.kaggle.com/datasets/nelgiriyewithana/top-spotify-songs-2023">Data Source</a></li>
+							<li><a href="https://public.tableau.com/app/profile/emily.tableau5908/viz/WhatMakesaHitSongAnalyzingTheTopStreamedSongsonSpotify2023/Dashboard1">Tableau Dashboard</a></li>
+							<li><a href="https://github.com/emilytics/PortfolioProjects/blob/Projects/Spotify%20Queries.sql">Full Query Script</a></li>
+							<li><a href="https://freefontsfamily.com/proxima-nova-font-family-free-download/">Proxima Nova</a></li>
+					</div>
+					</div>
+
+				<!-- Footer -->
+				<footer id="footer">
+					<div class="inner">
+						<section>
+							<h2>Get in touch</h2>
+							<p>ftemilyphan@gmail.com 
+							<br>(408) 775-5341<p>
+						</section>
+						<section>
+							<h2>Follow</h2>
+							<ul class="icons">
+								<li><a href="https://linkedin.com/in/emily-phan-49421613b" class="icon brands style2 fa-linkedin"><span class="label">Dribbble</span></a></li>
+								<li><a href="https://github.com/emilytics/PortfolioProjects" class="icon brands style2 fa-github"><span class="label">GitHub</span></a></li>
+							</ul>
+						</section>
+						<ul class="copyright">
+							<li>&copy; Emilytics. All rights reserved</li>
+						</ul>
+					</div>
+				</footer>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="assets/js/jquery.min.js"></script>
+			<script src="assets/js/browser.min.js"></script>
+			<script src="assets/js/breakpoints.min.js"></script>
+			<script src="assets/js/util.js"></script>
+			<script src="assets/js/main.js"></script>
+
+	</body>
+</html>
